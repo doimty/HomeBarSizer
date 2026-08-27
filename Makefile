@@ -1,5 +1,7 @@
 THEOS_PACKAGE_SCHEME ?= roothide
-TARGET := iphone:clang:latest:15.0
+# 显式 SDK 16.5: "latest" 在 macOS 上会解析成 Xcode 系统 SDK, 而私有框架
+# Preferences 只在 theos/sdks 的 iPhoneOS16.5.sdk 里
+TARGET := iphone:clang:16.5:15.0
 
 include $(THEOS)/makefiles/common.mk
 
