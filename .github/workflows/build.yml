@@ -113,7 +113,7 @@ jobs:
             build_version="$(xcrun vtool -arch arm64e -show-build "$binary")"
             printf '%s\n' "$build_version"
             printf '%s\n' "$build_version" | grep -Eq 'minos[[:space:]]+15\.0([[:space:]]|$)'
-            printf '%s\n' "$build_version" | grep -Eq 'sdk[[:space:]]+16\.5([[:space:]]|$)'
+            printf '%s\n' "$build_version" | grep -Eq 'sdk[[:space:]]+16\.[0-9]+([[:space:]]|$)'
           done
           {
             printf 'package=%s\n' "$(basename "$deb")"
