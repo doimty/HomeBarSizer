@@ -1,0 +1,11 @@
+Package: com.imkpatil.homebarsizer
+Name: HomeBarSizer
+Version: 1.2
+Architecture: iphoneos-arm64e
+Description: 调节 iOS 底部 HomeBar 的宽度、高度和圆角。iOS 15+ roothide 适配版，设置即时生效。
+Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 15.0)
+Maintainer: 灰灰
+Author: 灰灰
+Section: Tweaks
+Tag: supports::roothide
+Icon: file:///Library/Application Support/HomeBarSizer/icon.png

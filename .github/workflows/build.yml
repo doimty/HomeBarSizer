@@ -1,0 +1,127 @@
+name: Build HomeBarSizer roothide
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '.github/workflows/build.yml'
+      - '**/*.h'
+      - '**/*.m'
+      - '**/*.xm'
+      - '**/*.xmi'
+      - '**/*.plist'
+      - 'Makefile'
+      - 'control'
+      - 'layout/**'
+
+permissions:
+  contents: read
+
+env:
+  XCODE_DEVELOPER_DIR: /Applications/Xcode_15.4.app/Contents/Developer
+
+jobs:
+  package:
+    name: Package roothide (macOS 14 / Xcode 15.4)
+    runs-on: macos-14
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_15.4.app/Contents/Developer
+      THEOS: ${{ github.workspace }}/theos
+      THEOS_PACKAGE_SCHEME: roothide
+      FINALPACKAGE: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Select and verify Xcode 15.4 toolchain
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s "$XCODE_DEVELOPER_DIR"
+          test -d "$XCODE_DEVELOPER_DIR"
+          xcode_version="$(xcodebuild -version)"
+          printf '%s\n' "$xcode_version"
+          test "$(printf '%s\n' "$xcode_version" | sed -n '1p')" = "Xcode 15.4"
+          test "$(printf '%s\n' "$xcode_version" | sed -n '2p')" = "Build version 15F31d"
+          clang_version="$(xcrun clang --version)"
+          printf '%s\n' "$clang_version"
+          printf '%s\n' "$clang_version" | grep -Eq 'Apple clang version 15\.0\.0'
+          ld_version="$(xcrun ld -version_details)"
+          printf '%s\n' "$ld_version"
+          printf '%s\n' "$ld_version" | grep -Eq '"version"[[:space:]]*:[[:space:]]*"1053\.12"|PROJECT:ld-1053\.12|ld-1053\.12'
+          system_sdk="$(xcrun --sdk iphoneos --show-sdk-version)"
+          printf 'system_sdk=%s\n' "$system_sdk"
+          test "$system_sdk" = "17.5"
+
+      - name: Install packaging tools
+        run: |
+          set -euo pipefail
+          brew update
+          brew install dpkg ldid make
+
+      - name: Install Theos
+        run: |
+          set -euo pipefail
+          git clone --recursive https://github.com/roothide/theos.git "$THEOS"
+
+      - name: Build package
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/opt/make/libexec/gnubin:$THEOS/bin:$PATH"
+          rm -rf packages artifacts
+          mkdir -p artifacts
+          build_log="$GITHUB_WORKSPACE/artifacts/build.log"
+          make clean package 2>&1 | tee "$build_log"
+          if grep -q 'incompatible arm64e ABI compiler' "$build_log"; then
+            echo 'FATAL: incompatible arm64e ABI compiler' >&2
+            exit 1
+          fi
+          deb="$(find packages -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$deb"
+          cp "$deb" artifacts/
+
+      - name: Verify package
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/opt/make/libexec/gnubin:$THEOS/bin:$PATH"
+          deb="$(find artifacts -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$deb"
+          test "$(dpkg-deb -f "$deb" Package)" = "com.imkpatil.homebarsizer"
+          test "$(dpkg-deb -f "$deb" Architecture)" = "iphoneos-arm64e"
+          rm -rf /tmp/hbs-payload
+          mkdir -p /tmp/hbs-payload
+          dpkg-deb -x "$deb" /tmp/hbs-payload
+          dylib="$(find /tmp/hbs-payload -name 'HomeBarSizer.dylib' -type f -print -quit)"
+          prefs_bin="$(find /tmp/hbs-payload -name 'HomeBarSizer' -path '*PreferenceBundles*' -type f -print -quit)"
+          test -n "$dylib"
+          test -n "$prefs_bin"
+          test -f /tmp/hbs-payload/Library/PreferenceLoader/Preferences/HomeBarSizer.plist
+          for binary in "$dylib" "$prefs_bin"; do
+            xcrun otool -arch arm64e -hv "$binary"
+            xcrun otool -arch arm64e -hv "$binary" | grep -q '[[:space:]]DYLIB[[:space:]]'
+            build_version="$(xcrun vtool -arch arm64e -show-build "$binary")"
+            printf '%s\n' "$build_version"
+            printf '%s\n' "$build_version" | grep -Eq 'minos[[:space:]]+15\.0([[:space:]]|$)'
+            printf '%s\n' "$build_version" | grep -Eq 'sdk[[:space:]]+17\.5([[:space:]]|$)'
+          done
+          {
+            printf 'package=%s\n' "$(basename "$deb")"
+            printf 'sha256=%s\n' "$(shasum -a 256 "$deb" | awk '{print $1}')"
+            printf 'size_bytes=%s\n' "$(stat -f '%z' "$deb")"
+            printf 'architectures=%s\n' "$(xcrun lipo -archs "$dylib" | tr '\n' ' ')"
+            printf 'xcode=%s\n' "$(xcodebuild -version | tr '\n' ' ')"
+            printf 'clang=%s\n' "$(xcrun clang --version | sed -n '1p')"
+            printf 'ld=%s\n' "$(xcrun ld -version_details | sed -n 's/[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+            printf 'sdk=%s\n' "$(xcrun --sdk iphoneos --show-sdk-version)"
+            printf 'theos_commit=%s\n' "$(git -C "$THEOS" rev-parse HEAD)"
+          } | tee artifacts/provenance.txt
+
+      - name: Upload deb package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: homebarsizer-roothide-${{ github.run_id }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 30

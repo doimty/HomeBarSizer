@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+	<key>items</key>
+
+	<array>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<true/>
+			<key>defaults</key>
+			<string>com.imkpatil.homebarsizer</string>
+			<key>key</key>
+			<string>TwkEnabled</string>
+			<key>label</key>
+			<string>启用</string>
+			<key>PostNotification</key>
+			<string>com.imkpatil.homebarsizer.settingschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>HomeBar 宽度</string>
+			<key>footerText</key>
+			<string>调整 HomeBar 的宽度，按喜好拖动滑块。</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<integer>134</integer>
+			<key>defaults</key>
+			<string>com.imkpatil.homebarsizer</string>
+			<key>key</key>
+			<string>BarWidth</string>
+			<key>max</key>
+			<real>300</real>
+			<key>min</key>
+			<real>10</real>
+			<key>showValue</key>
+			<true/>
+			<key>PostNotification</key>
+			<string>com.imkpatil.homebarsizer.settingschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>HomeBar 高度</string>
+			<key>footerText</key>
+			<string>调整 HomeBar 的高度，按喜好拖动滑块。</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<integer>5</integer>
+			<key>defaults</key>
+			<string>com.imkpatil.homebarsizer</string>
+			<key>key</key>
+			<string>BarHeight</string>
+			<key>max</key>
+			<real>100</real>
+			<key>min</key>
+			<real>1</real>
+			<key>showValue</key>
+			<true/>
+			<key>PostNotification</key>
+			<string>com.imkpatil.homebarsizer.settingschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>HomeBar 圆角</string>
+			<key>footerText</key>
+			<string>调整 HomeBar 的圆角程度，按喜好拖动滑块。</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<integer>3</integer>
+			<key>defaults</key>
+			<string>com.imkpatil.homebarsizer</string>
+			<key>key</key>
+			<string>BarRadius</string>
+			<key>isSegmented</key>
+			<true/>
+			<key>segmentCount</key>
+			<integer>9</integer>
+			<key>max</key>
+			<integer>10</integer>
+			<key>min</key>
+			<integer>1</integer>
+			<key>showValue</key>
+			<true/>
+			<key>PostNotification</key>
+			<string>com.imkpatil.homebarsizer.settingschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>立即重启桌面</string>
+			<key>action</key>
+			<string>respring</string>
+		</dict>
+
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerAlignment</key>
+			<integer>1</integer>
+			<key>footerText</key>
+			<string>HomeBarSizer iOS 15+ 适配版，仅支持 roothide。</string>
+		</dict>
+
+	</array>
+
+	<key>title</key>
+	<string>HomeBarSizer</string>
+</dict>
+</plist>
