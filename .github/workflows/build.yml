@@ -66,6 +66,14 @@ jobs:
           set -euo pipefail
           git clone --recursive https://github.com/roothide/theos.git "$THEOS"
 
+      - name: Install Theos SDK with private frameworks
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git /tmp/theos-sdks
+          git -C /tmp/theos-sdks sparse-checkout set iPhoneOS16.5.sdk
+          mkdir -p "$THEOS/sdks"
+          cp -R /tmp/theos-sdks/iPhoneOS16.5.sdk "$THEOS/sdks/"
+
       - name: Build package
         run: |
           set -euo pipefail
@@ -73,7 +81,8 @@ jobs:
           rm -rf packages artifacts
           mkdir -p artifacts
           build_log="$GITHUB_WORKSPACE/artifacts/build.log"
-          make clean package 2>&1 | tee "$build_log"
+          make clean SDKVERSION=16.5 2>&1 | tee "$build_log"
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide SDKVERSION=16.5 2>&1 | tee -a "$build_log"
           if grep -q 'incompatible arm64e ABI compiler' "$build_log"; then
             echo 'FATAL: incompatible arm64e ABI compiler' >&2
             exit 1
@@ -104,7 +113,7 @@ jobs:
             build_version="$(xcrun vtool -arch arm64e -show-build "$binary")"
             printf '%s\n' "$build_version"
             printf '%s\n' "$build_version" | grep -Eq 'minos[[:space:]]+15\.0([[:space:]]|$)'
-            printf '%s\n' "$build_version" | grep -Eq 'sdk[[:space:]]+17\.5([[:space:]]|$)'
+            printf '%s\n' "$build_version" | grep -Eq 'sdk[[:space:]]+16\.5([[:space:]]|$)'
           done
           {
             printf 'package=%s\n' "$(basename "$deb")"
@@ -114,7 +123,7 @@ jobs:
             printf 'xcode=%s\n' "$(xcodebuild -version | tr '\n' ' ')"
             printf 'clang=%s\n' "$(xcrun clang --version | sed -n '1p')"
             printf 'ld=%s\n' "$(xcrun ld -version_details | sed -n 's/[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-            printf 'sdk=%s\n' "$(xcrun --sdk iphoneos --show-sdk-version)"
+            printf 'sdk=%s\n' "16.5 (theos sdks, pinned)"
             printf 'theos_commit=%s\n' "$(git -C "$THEOS" rev-parse HEAD)"
           } | tee artifacts/provenance.txt
 
