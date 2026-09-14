@@ -1,6 +1,6 @@
 include $(THEOS)/makefiles/common.mk
 
-TARGET := iphone:clang:latest:15.0
+TARGET := iphone:clang:16.5:15.0
 
 export ARCHS = arm64e
 
@@ -9,6 +9,7 @@ HomeBarSizer_FILES = HBRootListController.m
 HomeBarSizer_INSTALL_PATH = /Library/PreferenceBundles
 HomeBarSizer_FRAMEWORKS = UIKit
 HomeBarSizer_PRIVATE_FRAMEWORKS = Preferences
+HomeBarSizer_CFLAGS = -Wno-deprecated-declarations -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/bundle.mk
 

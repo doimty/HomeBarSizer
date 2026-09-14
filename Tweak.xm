@@ -1,25 +1,40 @@
-// HomeBarSizer — iOS 15+ roothide 适配版
-// 逆向自 com.imkpatil.homebarsizer 1.1 (2019, 源码已丢失), 逻辑重建 + 跨版本兼容
-// prefs: 域 com.imkpatil.homebarsizer, 键 TwkEnabled/BarWidth/BarHeight/BarRadius
-// 兼容性说明: 不存在的 selector 对应 hook 会静默失效(MSHookMessageEx 找不到方法即跳过), 不会崩溃
+// HomeBarSizer — iOS 15+ roothide
+// prefs: com.imkpatil.homebarsizer / TwkEnabled, BarWidth, BarHeight, BarRadius
+// Missing selectors are skipped via %group + class_get*Method before %init.
 
 #import <substrate.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <UIKit/UIKit.h>
+#import <math.h>
 
 static BOOL IsEnabled = YES;
 static double HomeBarWidth = 134.0;
 static double HomeBarHeight = 5.0;
 static double HomeBarRadius = 3.0;
 
-@interface FBSystemService : NSObject
-+ (id)sharedInstance;
-- (void)exitAndRelaunch:(BOOL)arg1;
-@end
+static const double kWidthMin = 10.0;
+static const double kWidthMax = 300.0;
+static const double kWidthDefault = 134.0;
+static const double kHeightMin = 1.0;
+static const double kHeightMax = 100.0;
+static const double kHeightDefault = 5.0;
+static const double kRadiusMin = 1.0;
+static const double kRadiusMax = 10.0;
+static const double kRadiusDefault = 3.0;
 
+static double ClampPref(double value, double minValue, double maxValue, double fallback) {
+    if (isnan(value) || isinf(value))
+        return fallback;
+    if (value < minValue)
+        return minValue;
+    if (value > maxValue)
+        return maxValue;
+    return value;
+}
+
+%group SettingsHooks
 %hook MTLumaDodgePillSettings
 
-// --- 读路径强制 (iOS 12-17 全部存在) ---
 - (double)minWidth {
     if (IsEnabled) return HomeBarWidth;
     return %orig;
@@ -36,51 +51,57 @@ static double HomeBarRadius = 3.0;
     if (IsEnabled) return HomeBarRadius;
     return %orig;
 }
-- (long long)cornerMask {
-    if (IsEnabled) return (long long)HomeBarRadius;
-    return %orig;
-}
 
-// --- 写路径强制 (原版核心机制, iOS 15/16 现代 tweak 验证有效) ---
 - (void)setMinWidth:(double)arg1 {
-    %orig(IsEnabled ? (int)HomeBarWidth : arg1);
+    %orig(IsEnabled ? HomeBarWidth : arg1);
 }
 - (void)setMaxWidth:(double)arg1 {
-    %orig(IsEnabled ? (int)HomeBarWidth : arg1);
+    %orig(IsEnabled ? HomeBarWidth : arg1);
 }
 - (void)setHeight:(double)arg1 {
-    %orig(IsEnabled ? (int)HomeBarHeight : arg1);
+    %orig(IsEnabled ? HomeBarHeight : arg1);
 }
 - (void)setCornerRadius:(double)arg1 {
-    %orig(IsEnabled ? (int)HomeBarRadius : arg1);
-}
-- (void)setCornerMask:(long long)arg1 {
-    %orig(IsEnabled ? (long long)HomeBarRadius : arg1);
+    %orig(IsEnabled ? HomeBarRadius : arg1);
 }
 %end
+%end
 
+%group SizeClassIOS16
 %hook MTLumaDodgePillView
-
-// iOS 16/17 签名: +suggestedSizeForContentWidth:withSettings:
 + (CGSize)suggestedSizeForContentWidth:(double)width withSettings:(id)settings {
     if (IsEnabled) return CGSizeMake(HomeBarWidth, HomeBarHeight);
     return %orig;
 }
+%end
+%end
 
-// iOS 14/15 签名: -suggestedSizeForContentWidth:
+%group SizeInstanceIOS15
+%hook MTLumaDodgePillView
 - (CGSize)suggestedSizeForContentWidth:(double)width {
     if (IsEnabled) return CGSizeMake(HomeBarWidth, HomeBarHeight);
     return %orig;
 }
+%end
+%end
 
-// 全版本兜底: sizeThatFits:
+%group SizeFits
+%hook MTLumaDodgePillView
 - (CGSize)sizeThatFits:(CGSize)size {
     if (IsEnabled) return CGSizeMake(HomeBarWidth, HomeBarHeight);
     return %orig;
 }
 %end
+%end
 
-static void reloadSettings(void) {
+static void reloadSettings(CFNotificationCenterRef center, void *observer, CFStringRef name,
+                           const void *object, CFDictionaryRef userInfo) {
+    (void)center;
+    (void)observer;
+    (void)name;
+    (void)object;
+    (void)userInfo;
+
     CFStringRef domain = CFSTR("com.imkpatil.homebarsizer");
     CFPreferencesAppSynchronize(domain);
 
@@ -90,28 +111,32 @@ static void reloadSettings(void) {
 
     id widthVal = (__bridge_transfer id)CFPreferencesCopyAppValue(CFSTR("BarWidth"), domain);
     if (widthVal && [widthVal respondsToSelector:@selector(doubleValue)])
-        HomeBarWidth = [widthVal doubleValue];
+        HomeBarWidth = ClampPref([widthVal doubleValue], kWidthMin, kWidthMax, kWidthDefault);
 
     id heightVal = (__bridge_transfer id)CFPreferencesCopyAppValue(CFSTR("BarHeight"), domain);
     if (heightVal && [heightVal respondsToSelector:@selector(doubleValue)])
-        HomeBarHeight = [heightVal doubleValue];
+        HomeBarHeight = ClampPref([heightVal doubleValue], kHeightMin, kHeightMax, kHeightDefault);
 
     id radiusVal = (__bridge_transfer id)CFPreferencesCopyAppValue(CFSTR("BarRadius"), domain);
     if (radiusVal && [radiusVal respondsToSelector:@selector(doubleValue)])
-        HomeBarRadius = [radiusVal doubleValue];
-}
-
-static void respring(CFNotificationCenterRef center, void *observer, CFStringRef name,
-                     const void *object, CFDictionaryRef userInfo) {
-    [[%c(FBSystemService) sharedInstance] exitAndRelaunch:YES];
+        HomeBarRadius = ClampPref([radiusVal doubleValue], kRadiusMin, kRadiusMax, kRadiusDefault);
 }
 
 %ctor {
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,
-        (CFNotificationCallback)reloadSettings, CFSTR("com.imkpatil.homebarsizer.settingschanged"),
+        reloadSettings, CFSTR("com.imkpatil.homebarsizer.settingschanged"),
         NULL, CFNotificationSuspensionBehaviorCoalesce);
-    CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,
-        respring, CFSTR("com.imkpatil.homebarsizer.respring"),
-        NULL, CFNotificationSuspensionBehaviorCoalesce);
-    reloadSettings();
+    reloadSettings(NULL, NULL, NULL, NULL, NULL);
+
+    if (%c(MTLumaDodgePillSettings))
+        %init(SettingsHooks);
+
+    Class view = %c(MTLumaDodgePillView);
+    if (view) {
+        if (class_getClassMethod(view, @selector(suggestedSizeForContentWidth:withSettings:)))
+            %init(SizeClassIOS16);
+        if (class_getInstanceMethod(view, @selector(suggestedSizeForContentWidth:)))
+            %init(SizeInstanceIOS15);
+        %init(SizeFits);
+    }
 }

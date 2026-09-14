@@ -14,8 +14,10 @@ on:
       - '**/*.xmi'
       - '**/*.plist'
       - 'Makefile'
+      - 'Prefs/Makefile'
       - 'control'
       - 'layout/**'
+      - 'tests/**'
 
 permissions:
   contents: read
@@ -35,6 +37,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Contract tests
+        run: python3 tests/test_contract.py
 
       - name: Select and verify Xcode 15.4 toolchain
         run: |
