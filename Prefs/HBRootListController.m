@@ -1,15 +1,14 @@
 #import "HBRootListController.h"
 #import <spawn.h>
-#import <sys/wait.h>
+#include <roothide.h>
 
 extern char **environ;
 
-static BOOL SpawnRespring(const char *path, char *const argv[]) {
+static void SpawnJBRoot(NSString *relativePath, char *const argv[]) {
+    NSString *resolved = jbroot(relativePath);
+    const char *path = resolved.length ? resolved.fileSystemRepresentation : relativePath.fileSystemRepresentation;
     pid_t pid = 0;
-    if (posix_spawn(&pid, path, NULL, NULL, argv, environ) != 0)
-        return NO;
-    waitpid(pid, NULL, 0);
-    return YES;
+    posix_spawn(&pid, path, NULL, NULL, argv, environ);
 }
 
 @implementation HBRootListController
@@ -22,27 +21,29 @@ static BOOL SpawnRespring(const char *path, char *const argv[]) {
 }
 
 - (void)respring {
-    char *sbreloadArgv[] = {"sbreload", NULL};
-    const char *sbreloadPaths[] = {
-        "/var/jb/usr/bin/sbreload",
-        "/usr/bin/sbreload",
-        NULL,
-    };
-    for (const char **path = sbreloadPaths; *path; path++) {
-        if (SpawnRespring(*path, sbreloadArgv))
+    // Same path Cephei / Vedette use from a PreferenceBundle: ask FrontBoard
+    // to restart SpringBoard. No hardcoded jailbreak prefix, no Darwin broadcast.
+    [[NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/FrontBoardServices.framework"] load];
+    [[NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/SpringBoardServices.framework"] load];
+
+    Class relaunchAction = NSClassFromString(@"SBSRelaunchAction");
+    Class systemService = NSClassFromString(@"FBSSystemService");
+    if ([relaunchAction respondsToSelector:@selector(actionWithReason:options:targetURL:)] &&
+        [systemService respondsToSelector:@selector(sharedService)]) {
+        id action = [relaunchAction actionWithReason:@"RestartRenderServer"
+                                            options:4
+                                          targetURL:[NSURL URLWithString:@"prefs:root=HomeBarSizer"]];
+        id service = [systemService sharedService];
+        if (action && service && [service respondsToSelector:@selector(sendActions:withResult:)]) {
+            [service sendActions:[NSSet setWithObject:action] withResult:nil];
             return;
+        }
     }
 
+    char *sbreloadArgv[] = {"sbreload", NULL};
+    SpawnJBRoot(@"/usr/bin/sbreload", sbreloadArgv);
     char *killallArgv[] = {"killall", "SpringBoard", NULL};
-    const char *killallPaths[] = {
-        "/var/jb/usr/bin/killall",
-        "/usr/bin/killall",
-        NULL,
-    };
-    for (const char **path = killallPaths; *path; path++) {
-        if (SpawnRespring(*path, killallArgv))
-            return;
-    }
+    SpawnJBRoot(@"/usr/bin/killall", killallArgv);
 }
 
 @end
