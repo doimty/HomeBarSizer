@@ -4,6 +4,15 @@
 
 extern char **environ;
 
+@interface SBSRelaunchAction : NSObject
++ (id)actionWithReason:(NSString *)reason options:(NSUInteger)options targetURL:(NSURL *)url;
+@end
+
+@interface FBSSystemService : NSObject
++ (id)sharedService;
+- (void)sendActions:(NSSet *)actions withResult:(id)result;
+@end
+
 static void SpawnJBRoot(NSString *relativePath, char *const argv[]) {
     NSString *resolved = jbroot(relativePath);
     const char *path = resolved.length ? resolved.fileSystemRepresentation : relativePath.fileSystemRepresentation;
@@ -26,15 +35,14 @@ static void SpawnJBRoot(NSString *relativePath, char *const argv[]) {
     [[NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/FrontBoardServices.framework"] load];
     [[NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/SpringBoardServices.framework"] load];
 
-    Class relaunchAction = NSClassFromString(@"SBSRelaunchAction");
-    Class systemService = NSClassFromString(@"FBSSystemService");
-    if ([relaunchAction respondsToSelector:@selector(actionWithReason:options:targetURL:)] &&
-        [systemService respondsToSelector:@selector(sharedService)]) {
+    id relaunchAction = NSClassFromString(@"SBSRelaunchAction");
+    id systemService = NSClassFromString(@"FBSSystemService");
+    if (relaunchAction && systemService) {
         id action = [relaunchAction actionWithReason:@"RestartRenderServer"
                                             options:4
                                           targetURL:[NSURL URLWithString:@"prefs:root=HomeBarSizer"]];
         id service = [systemService sharedService];
-        if (action && service && [service respondsToSelector:@selector(sendActions:withResult:)]) {
+        if (action && service) {
             [service sendActions:[NSSet setWithObject:action] withResult:nil];
             return;
         }
